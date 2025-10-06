@@ -41,9 +41,8 @@ To integrate packages from this flake into your NixOS system configuration (e.g.
       modules = [
         # Your existing modules
         {
-          environment.systemPackages = with nixpkgs; [
-            my-flakes.packages.${nixpkgs.system}.algermusicplayer
-            # Add other packages from this flake here
+                    environment.systemPackages = with nixpkgs; [
+                          my-flakes.packages.${nixpkgs.system}.algermusicplayer-bin            # Add other packages from this flake here
           ];
 
           # If this flake provided an overlay you wanted to apply globally:
@@ -70,7 +69,7 @@ To use packages from this flake within your Home Manager configuration (e.g., in
         # Your existing Home Manager modules
         {
           home.packages = with nixpkgs; [
-            my-flakes.packages.${nixpkgs.system}.algermusicplayer
+            my-flakes.packages.${nixpkgs.system}.algermusicplayer-bin
             # Add other packages from this flake here
           ];
         }
@@ -91,7 +90,7 @@ To create a development shell that includes packages from this flake:
   outputs = { self, nixpkgs, my-flakes, ... }: {
     devShells.${nixpkgs.system}.default = nixpkgs.mkShell {
       packages = with nixpkgs; [
-        my-flakes.packages.${nixpkgs.system}.algermusicplayer
+        my-flakes.packages.${nixpkgs.system}.algermusicplayer-bin
       ];
     };
   };
