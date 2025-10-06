@@ -1,4 +1,4 @@
-# default.nix (Final Corrected Version v2)
+# default.nix (Final, Patched Version)
 {
   pkgs ? import <nixpkgs> { },
 }:
@@ -41,10 +41,39 @@ stdenv.mkDerivation rec {
     in
     fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
 
-  # 【关键修正】nativeBuildInputs 中只包含真正的构建工具包
+  # 【修正 1】添加 autoPatchelfHook
   nativeBuildInputs = [
     rpmextract
     makeWrapper
+    autoPatchelfHook
+  ];
+
+  # 【修正 2】添加运行时所需的共享库
+  # 这是 autoPatchelfHook 查找 .so 文件的地方
+  buildInputs = [
+    alsa-lib
+    at-spi2-atk
+    cups
+    dbus
+    expat
+    gcc.cc.lib # for libstdc++.so.6
+    gdk-pixbuf
+    glib
+    gtk3
+    nss
+    pango
+    pipewire
+    systemd
+    libxkbcommon
+    # A common set of X11 libraries required by GUI apps
+    xorg.libX11
+    xorg.libXScrnSaver
+    xorg.libXcomposite
+    xorg.libXdamage
+    xorg.libXext
+    xorg.libXfixes
+    xorg.libXrandr
+    xorg.libXtst
   ];
 
   dontUnpack = true;
@@ -63,10 +92,13 @@ stdenv.mkDerivation rec {
     install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png \
       $out/share/pixmaps/algermusicplayer.png
 
+    # 我们不再需要手动为可执行文件添加包装器了，
+    # 因为 autoPatchelfHook 会处理它。
+    # 但为了添加 flags，我们仍然保留 makeWrapper。
+    # autoPatchelfHook 会在包装器创建 *之后* 再修补二进制文件，非常智能。
     makeWrapper $out/lib/algermusicplayer/algermusicplayer $out/bin/algermusicplayer-bin \
       --add-flags "--ozone-platform-hint=auto"
 
-    # 这里我们使用由 makeDesktopItem 函数生成的 derivation 的输出
     cp ${desktopItem}/share/applications/* $out/share/applications/
 
     runHook postInstall
