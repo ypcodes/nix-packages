@@ -1,4 +1,4 @@
-# default.nix (Final Perfected Version)
+# default.nix (The actual final, correct version)
 {
   pkgs ? import <nixpkgs> { },
 }:
@@ -42,16 +42,14 @@ stdenv.mkDerivation rec {
     fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
 
   # nativeBuildInputs: 构建时使用的工具
-  # autoPatchelfHook 会自动修复二进制文件的库依赖路径
+  # 【最终修正】这里只包含真正的工具包，makeDesktopItem 已被移除
   nativeBuildInputs = [
     rpmextract
     makeWrapper
-    makeDesktopItem
     autoPatchelfHook
   ];
 
   # buildInputs: 运行时需要的库
-  # 我们把 electron 加回来，是为了给 autoPatchelfHook 提供它所需要的所有 .so 文件
   buildInputs = [ electron ];
 
   dontUnpack = true;
@@ -70,10 +68,10 @@ stdenv.mkDerivation rec {
     install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png \
       $out/share/pixmaps/algermusicplayer.png
 
-    # 我们依然包装自带的可执行文件，这是正确的
     makeWrapper $out/lib/algermusicplayer/algermusicplayer $out/bin/algermusicplayer-bin \
       --add-flags "--ozone-platform-hint=auto"
 
+    # 我们使用由 let 块中的 makeDesktopItem 函数生成的 derivation 的输出
     cp ${desktopItem}/share/applications/* $out/share/applications/
 
     runHook postInstall
