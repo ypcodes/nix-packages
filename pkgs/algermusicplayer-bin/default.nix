@@ -1,7 +1,5 @@
-# default.nix (已修正)
-{
-  pkgs ? import <nixpkgs> { },
-}:
+# default.nix (最终健壮版)
+{ pkgs ? import <nixpkgs> {} }:
 
 with pkgs;
 
@@ -11,26 +9,21 @@ stdenv.mkDerivation rec {
 
   name = "algermusicplayer-bin-${version}";
 
-  src =
-    let
-      arch = stdenv.hostPlatform.system;
-      urls = {
-        "x86_64-linux" = {
-          url = "https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/${pname}-${version}-linux-x86_64.rpm";
-          sha256 = "268db69db376598cccbff8a714b6866aa0e0f28283ff00100156cf559714a186";
-        };
-        "aarch64-linux" = {
-          url = "https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/${pname}-${version}-linux-aarch64.rpm";
-          sha256 = "fc298d5562ada6becc0102f3fd559d7400fcf9c80f4d81759e44841ed07673c4";
-        };
+  src = let
+    arch = stdenv.hostPlatform.system;
+    urls = {
+      "x86_64-linux" = {
+        url = "https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/${pname}-${version}-linux-x86_64.rpm";
+        sha256 = "268db69db376598cccbff8a714b6866aa0e0f28283ff00100156cf559714a186";
       };
-    in
-    fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
+      "aarch64-linux" = {
+        url = "https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/${pname}-${version}-linux-aarch64.rpm";
+        sha256 = "fc298d5562ada6becc0102f3fd559d7400fcf9c80f4d81759e44841ed07673c4";
+      };
+    };
+  in fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
 
-  nativeBuildInputs = [
-    rpmextract
-    makeWrapper
-  ];
+  nativeBuildInputs = [ rpmextract makeWrapper ];
   buildInputs = [ electron ];
 
   dontUnpack = true;
@@ -44,23 +37,13 @@ stdenv.mkDerivation rec {
     # 创建必要的目录
     install -d $out/bin $out/lib/algermusicplayer
     install -d $out/share/applications
-    # 使用更标准的图标路径
     install -d $out/share/icons/hicolor/1084x1084/apps
 
     # 安装应用核心文件
     install -Dm644 opt/AlgerMusicPlayer/resources/app.asar $out/lib/algermusicplayer/app.asar
     cp -r opt/AlgerMusicPlayer/resources/app.asar.unpacked $out/lib/algermusicplayer/
     cp -r opt/AlgerMusicPlayer/resources/html $out/lib/algermusicplayer/
-
-    # 安装并修正 .desktop 文件
-    install -Dm644 usr/share/applications/algermusicplayer.desktop $out/share/applications/algermusicplayer.desktop
-    substituteInPlace $out/share/applications/algermusicplayer.desktop \
-      # 【错误修正】Exec= 后面不应带有 Nix Store 的绝对路径
-      --replace "Exec=algermusicplayer" "Exec=algermusicplayer-bin" \
-      --replace "Categories=Audio;" "Categories=AudioVideo;" \
-      # 同时更新图标路径（可选，但推荐）
-      --replace "Icon=algermusicplayer" "Icon=algermusicplayer"
-
+    
     # 安装图标到标准路径
     install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png $out/share/icons/hicolor/1084x1084/apps/algermusicplayer.png
 
@@ -68,6 +51,19 @@ stdenv.mkDerivation rec {
     makeWrapper ${electron}/bin/electron $out/bin/algermusicplayer-bin \
       --add-flags $out/lib/algermusicplayer/app.asar \
       --add-flags "--ozone-platform-hint=auto"
+
+    # 【推荐的健壮做法】直接创建我们自己的 .desktop 文件，而不是修改原始文件。
+    # 这样可以确保内容完全符合我们的预期，不受上游变动的影响。
+    cat <<EOF > $out/share/applications/algermusicplayer.desktop
+    [Desktop Entry]
+    Name=AlgerMusicPlayer
+    Comment=${meta.description}
+    Exec=algermusicplayer-bin
+    Icon=algermusicplayer
+    Terminal=false
+    Type=Application
+    Categories=AudioVideo;Audio;
+    EOF
 
     runHook postInstall
   '';
@@ -78,10 +74,7 @@ stdenv.mkDerivation rec {
     description = "An music player based on Electron, TypeScript, and Vue 3";
     homepage = "https://github.com/algerkong/AlgerMusicPlayer";
     license = licenses.asl20;
-    platforms = [
-      "x86_64-linux"
-      "aarch64-linux"
-    ];
+    platforms = [ "x86_64-linux" "aarch64-linux" ];
     maintainers = with maintainers; [ ];
   };
 }
