@@ -20,6 +20,7 @@ Add the following to your `flake.nix` inputs:
   inputs = {
     # ... other inputs
     my-flakes.url = "github:ypcodes/nix-packages"; # Replace with your actual repository URL if forked
+    my-flakes.inputs.nixpkgs.follows = "nixpkgs"; # Ensures consistency and allows overriding the nixpkgs version used by 'my-flakes'
   };
 
   # ... outputs
