@@ -1,24 +1,10 @@
-# default.nix (The actual final, correct version)
+# default.nix (已修正)
 {
   pkgs ? import <nixpkgs> { },
 }:
 
 with pkgs;
 
-let
-  desktopItem = makeDesktopItem {
-    name = "algermusicplayer";
-    exec = "algermusicplayer-bin";
-    icon = "algermusicplayer";
-    comment = "An music player based on Electron, TypeScript, and Vue 3";
-    desktopName = "AlgerMusicPlayer";
-    genericName = "Music Player";
-    categories = [
-      "AudioVideo"
-      "Audio"
-    ];
-  };
-in
 stdenv.mkDerivation rec {
   pname = "AlgerMusicPlayer";
   version = "4.9.0";
@@ -41,15 +27,10 @@ stdenv.mkDerivation rec {
     in
     fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
 
-  # nativeBuildInputs: 构建时使用的工具
-  # 【最终修正】这里只包含真正的工具包，makeDesktopItem 已被移除
   nativeBuildInputs = [
     rpmextract
     makeWrapper
-    autoPatchelfHook
   ];
-
-  # buildInputs: 运行时需要的库
   buildInputs = [ electron ];
 
   dontUnpack = true;
@@ -58,21 +39,35 @@ stdenv.mkDerivation rec {
 
   installPhase = ''
     runHook preInstall
-
     rpmextract $src
 
-    install -d $out/bin $out/lib $out/share/applications $out/share/pixmaps
+    # 创建必要的目录
+    install -d $out/bin $out/lib/algermusicplayer
+    install -d $out/share/applications
+    # 使用更标准的图标路径
+    install -d $out/share/icons/hicolor/1084x1084/apps
 
-    cp -r opt/AlgerMusicPlayer $out/lib/algermusicplayer
+    # 安装应用核心文件
+    install -Dm644 opt/AlgerMusicPlayer/resources/app.asar $out/lib/algermusicplayer/app.asar
+    cp -r opt/AlgerMusicPlayer/resources/app.asar.unpacked $out/lib/algermusicplayer/
+    cp -r opt/AlgerMusicPlayer/resources/html $out/lib/algermusicplayer/
 
-    install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png \
-      $out/share/pixmaps/algermusicplayer.png
+    # 安装并修正 .desktop 文件
+    install -Dm644 usr/share/applications/algermusicplayer.desktop $out/share/applications/algermusicplayer.desktop
+    substituteInPlace $out/share/applications/algermusicplayer.desktop \
+      # 【错误修正】Exec= 后面不应带有 Nix Store 的绝对路径
+      --replace "Exec=algermusicplayer" "Exec=algermusicplayer-bin" \
+      --replace "Categories=Audio;" "Categories=AudioVideo;" \
+      # 同时更新图标路径（可选，但推荐）
+      --replace "Icon=algermusicplayer" "Icon=algermusicplayer"
 
-    makeWrapper $out/lib/algermusicplayer/algermusicplayer $out/bin/algermusicplayer-bin \
+    # 安装图标到标准路径
+    install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png $out/share/icons/hicolor/1084x1084/apps/algermusicplayer.png
+
+    # 创建启动脚本
+    makeWrapper ${electron}/bin/electron $out/bin/algermusicplayer-bin \
+      --add-flags $out/lib/algermusicplayer/app.asar \
       --add-flags "--ozone-platform-hint=auto"
-
-    # 我们使用由 let 块中的 makeDesktopItem 函数生成的 derivation 的输出
-    cp ${desktopItem}/share/applications/* $out/share/applications/
 
     runHook postInstall
   '';
