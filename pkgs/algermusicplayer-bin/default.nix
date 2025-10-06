@@ -1,4 +1,4 @@
-# default.nix (Final, Patched Version)
+# default.nix (Final Perfected Version)
 {
   pkgs ? import <nixpkgs> { },
 }:
@@ -41,40 +41,18 @@ stdenv.mkDerivation rec {
     in
     fetchurl (urls.${arch} or (throw "Unsupported system: ${arch}"));
 
-  # 【修正 1】添加 autoPatchelfHook
+  # nativeBuildInputs: 构建时使用的工具
+  # autoPatchelfHook 会自动修复二进制文件的库依赖路径
   nativeBuildInputs = [
     rpmextract
     makeWrapper
+    makeDesktopItem
     autoPatchelfHook
   ];
 
-  # 【修正 2】添加运行时所需的共享库
-  # 这是 autoPatchelfHook 查找 .so 文件的地方
-  buildInputs = [
-    alsa-lib
-    at-spi2-atk
-    cups
-    dbus
-    expat
-    gcc.cc.lib # for libstdc++.so.6
-    gdk-pixbuf
-    glib
-    gtk3
-    nss
-    pango
-    pipewire
-    systemd
-    libxkbcommon
-    # A common set of X11 libraries required by GUI apps
-    xorg.libX11
-    xorg.libXScrnSaver
-    xorg.libXcomposite
-    xorg.libXdamage
-    xorg.libXext
-    xorg.libXfixes
-    xorg.libXrandr
-    xorg.libXtst
-  ];
+  # buildInputs: 运行时需要的库
+  # 我们把 electron 加回来，是为了给 autoPatchelfHook 提供它所需要的所有 .so 文件
+  buildInputs = [ electron ];
 
   dontUnpack = true;
   dontConfigure = true;
@@ -92,10 +70,7 @@ stdenv.mkDerivation rec {
     install -Dm644 usr/share/icons/hicolor/1084x1084/apps/algermusicplayer.png \
       $out/share/pixmaps/algermusicplayer.png
 
-    # 我们不再需要手动为可执行文件添加包装器了，
-    # 因为 autoPatchelfHook 会处理它。
-    # 但为了添加 flags，我们仍然保留 makeWrapper。
-    # autoPatchelfHook 会在包装器创建 *之后* 再修补二进制文件，非常智能。
+    # 我们依然包装自带的可执行文件，这是正确的
     makeWrapper $out/lib/algermusicplayer/algermusicplayer $out/bin/algermusicplayer-bin \
       --add-flags "--ozone-platform-hint=auto"
 
